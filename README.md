@@ -1,26 +1,40 @@
-# VFX AI MINI
+# VFX AI MINI — All-in-one repository
 
-Neon mobile-friendly WhatsApp pairing portal. This repository contains the **website frontend/proxy**; it does not run the persistent WhatsApp/Baileys bot itself.
+This repository contains both parts of the project:
 
-## Deploy the website
+- `/` — Vercel pairing website and API proxy.
+- `/bot` — persistent Node.js + Baileys WhatsApp bot backend.
 
-1. Import this repository into Vercel and deploy the `main` branch.
-2. In Vercel → Project → Settings → Environment Variables, add:
-   - `BOT_API_URL` = the public base URL of your running bot service, for example `https://your-service.koyeb.app` (no trailing slash).
-3. Redeploy after saving the variable.
-4. Open `/api/health`. A successful response confirms the website can reach the bot service.
+## Important hosting detail
 
-## Bot backend (required for real pairing codes)
+The files are together in one GitHub repository, but the two processes must be deployed as separate services. Vercel serverless functions cannot keep a Baileys WhatsApp socket alive or reliably store the bot's session directory.
 
-Deploy the `RAHUL-AI-MINI` Node.js/Baileys bot as a persistent web service on a host such as Koyeb or Render. The backend must expose:
+## 1. Deploy the website on Vercel
 
-- `GET /health` — returns a successful JSON health response.
-- `GET /pair?number=COUNTRYCODEPHONENUMBER` — returns JSON containing `code` when pairing-code generation succeeds.
+Import this repository into Vercel and deploy the `main` branch with the project root set to `/`.
 
-The bot service must keep the WhatsApp socket running and persist its session/auth files. Vercel serverless functions cannot keep the Baileys socket alive or persist its session directory, so this website cannot generate a real pairing code by itself.
+In Vercel → Project → Settings → Environment Variables, set:
+
+- Key: `BOT_API_URL`
+- Value: the public base URL of the bot service (no trailing slash), e.g. `https://your-bot-service.koyeb.app`
+
+Redeploy after adding the variable. Test `https://YOUR-VERCEL-DOMAIN/api/health`.
+
+## 2. Deploy the bot from this same repository
+
+Create a Node.js web service on Koyeb or Render connected to this same repository. Set the service's **root directory / working directory** to `bot`.
+
+- Build command: `npm install`
+- Start command: `npm start`
+- Port: use the platform-provided `PORT` environment variable.
+- Keep the service running as a persistent web process.
+- Configure persistent storage for the `bot/session` directory if the host supports it; otherwise a restart may require pairing again.
+
+The bot exposes `GET /health` and `GET /pair?number=COUNTRYCODEPHONENUMBER`. The website forwards pairing requests to these endpoints.
 
 ## Troubleshooting
 
-- `Set BOT_API_URL...`: the environment variable is missing from Vercel.
-- `Bot backend is not reachable`: check the bot service is deployed/running and that `BOT_API_URL` is the exact public base URL.
-- Pairing code fails: inspect the bot host's runtime logs. Do not expose WhatsApp session files or credentials publicly.
+- Website says `BOT_API_URL` is missing: add it in Vercel and redeploy.
+- `/api/health` fails: confirm the bot service is deployed and its public URL is correct.
+- Pairing code fails: inspect the bot host logs and verify the WhatsApp socket is running.
+- Do not upload or share the `session` directory; it contains account authentication credentials.
